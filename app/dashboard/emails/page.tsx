@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import {
   Send, Loader2, Trash2, Eye, Code2, FileCode2, X,
-  Plus, Users, Mail, ChevronDown, ChevronUp, Upload, Pencil, Download, FileSpreadsheet,
+  Plus, Users, Mail, ChevronDown, Upload, Pencil, Download, FileSpreadsheet, Clock,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import * as XLSX from 'xlsx'
@@ -173,6 +173,8 @@ function ComposePanel({ onSaved }: { onSaved: () => void }) {
   const [recipients, setRecipients] = useState<Recipient[]>([])
   const [showPicker, setShowPicker] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [scheduleOn, setScheduleOn] = useState(false)
+  const [scheduledAt, setScheduledAt] = useState('')
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [showTemplateMenu, setShowTemplateMenu] = useState(false)
@@ -271,31 +273,52 @@ function ComposePanel({ onSaved }: { onSaved: () => void }) {
     if (!subject.trim() || !body.trim()) { toast.error('Subject and body are required'); return }
     if (recipients.length === 0) { toast.error('Add at least one recipient'); return }
     if (!user) return
+
+    let schedule: { status: 'scheduled'; scheduled_at: string } | null = null
+    if (scheduleOn) {
+      if (!scheduledAt) { toast.error('Pick a date & time to schedule'); return }
+      const when = new Date(scheduledAt)
+      if (isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+        toast.error('Scheduled time must be in the future'); return
+      }
+      schedule = { status: 'scheduled', scheduled_at: when.toISOString() }
+    }
+
     setSaving(true)
     const { error } = await supabase.schema('crm').from('email_drafts').insert({
-      user_id: user.id, subject: subject.trim(), body, is_html: isHtml, recipients,
+      user_id: user.id, subject: subject.trim(), body, is_html: isHtml, recipients, ...(schedule ?? {}),
     })
     if (error) toast.error(error.message)
     else {
-      toast.success('Draft saved')
-      setSubject(''); setBody(''); setRecipients([]); setIsHtml(false); setPreview(false); setOpen(false)
+      toast.success(schedule ? `Scheduled for ${format(new Date(schedule.scheduled_at), 'MMM d, h:mm a')}` : 'Draft saved')
+      setSubject(''); setBody(''); setRecipients([]); setIsHtml(false); setPreview(false)
+      setScheduleOn(false); setScheduledAt(''); setOpen(false)
       onSaved()
     }
     setSaving(false)
   }
 
+  const closeModal = () => { setOpen(false); setShowTemplatePicker(false); setShowTemplateMenu(false); setPreview(false) }
+
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-      <button type="button" onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-zinc-800/50 transition-colors">
-        <span className="font-medium text-zinc-200 flex items-center gap-2">
-          <Mail className="w-4 h-4 text-indigo-400" /> Compose new draft
-        </span>
-        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
-      </button>
+    <>
+      <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
+        <Plus className="w-4 h-4" /> Compose new draft
+      </Button>
 
       {open && (
-        <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[88vh] flex flex-col shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+              <h3 className="font-semibold text-zinc-100 flex items-center gap-2">
+                <Mail className="w-4 h-4 text-indigo-400" /> Compose new draft
+              </h3>
+              <button onClick={closeModal} className="text-zinc-500 hover:text-zinc-200 transition-colors"><X className="w-4 h-4" /></button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {/* Recipients */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -419,14 +442,37 @@ function ComposePanel({ onSaved }: { onSaved: () => void }) {
             }
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-            Save to Drafts
-          </Button>
+              {/* Schedule send */}
+              <div className="space-y-2 border-t border-zinc-800 pt-4">
+                <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={scheduleOn} onChange={e => setScheduleOn(e.target.checked)}
+                    className="w-4 h-4 rounded border-zinc-600 accent-indigo-600" />
+                  <Clock className="w-3.5 h-3.5 text-indigo-400" /> Schedule send for later
+                </label>
+                {scheduleOn && (
+                  <div className="pl-6 space-y-1">
+                    <Input type="datetime-local" value={scheduledAt}
+                      onChange={e => setScheduledAt(e.target.value)}
+                      min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)} />
+                    <p className="text-xs text-zinc-500">Uses your local time. The email is sent automatically at this time.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-zinc-800 shrink-0">
+              <Button variant="ghost" size="sm" onClick={closeModal} disabled={saving}>Cancel</Button>
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : scheduleOn ? <Clock className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                {scheduleOn ? 'Schedule' : 'Save to Drafts'}
+              </Button>
+            </div>
+          </div>
+          {showPicker && <ContactPicker onAdd={addRecipients} onClose={() => setShowPicker(false)} />}
         </div>
       )}
-      {showPicker && <ContactPicker onAdd={addRecipients} onClose={() => setShowPicker(false)} />}
-    </div>
+    </>
   )
 }
 
@@ -644,6 +690,51 @@ function DraftPreview({ draft, startInEdit = false, onClose, onChanged }: {
   )
 }
 
+// ─── Bulk schedule modal ──────────────────────────────────────────────────────
+
+function BulkScheduleModal({ count, busy, onConfirm, onClose }: {
+  count: number
+  busy: boolean
+  onConfirm: (iso: string) => void
+  onClose: () => void
+}) {
+  const [value, setValue] = useState('')
+  const min = new Date(Date.now() + 60_000).toISOString().slice(0, 16)
+
+  const submit = () => {
+    if (!value) { toast.error('Pick a date & time'); return }
+    const when = new Date(value)
+    if (isNaN(when.getTime()) || when.getTime() <= Date.now()) { toast.error('Time must be in the future'); return }
+    onConfirm(when.toISOString())
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+          <h3 className="font-semibold text-zinc-100 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-indigo-400" /> Schedule {count} draft{count !== 1 ? 's' : ''}
+          </h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="px-4 py-4 space-y-2">
+          <Label>Send date &amp; time</Label>
+          <Input type="datetime-local" value={value} min={min} onChange={e => setValue(e.target.value)} autoFocus />
+          <p className="text-xs text-zinc-500">
+            All {count} selected draft{count !== 1 ? 's' : ''} will be sent automatically at this time (your local time).
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-zinc-800">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button size="sm" onClick={submit} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Clock className="h-4 w-4" />} Schedule
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EmailsPage() {
@@ -659,6 +750,10 @@ export default function EmailsPage() {
   const [sendErrors, setSendErrors] = useState<string[]>([])
   const [sendMenuOpen, setSendMenuOpen] = useState(false)
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'drafts' | 'scheduled'>('drafts')
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
+  const [scheduling, setScheduling] = useState(false)
+  const [selectMenuOpen, setSelectMenuOpen] = useState(false)
 
   const fetchDrafts = useCallback(async () => {
     if (!user) return
@@ -674,7 +769,19 @@ export default function EmailsPage() {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next
   })
 
-  const toggleAll = () => setSelected(prev => prev.size === drafts.length ? new Set() : new Set(drafts.map(d => d.id)))
+  // Split into the two tabs. Scheduled = waiting to auto-send; everything else
+  // (draft / failed) lives in the Drafts tab.
+  const scheduledDrafts = drafts.filter(d => d.status === 'scheduled')
+  const inboxDrafts = drafts.filter(d => d.status !== 'scheduled')
+  const visible = activeTab === 'scheduled' ? scheduledDrafts : inboxDrafts
+
+  const switchTab = (tab: 'drafts' | 'scheduled') => { setActiveTab(tab); setSelected(new Set()) }
+
+  const toggleAll = () => setSelected(prev =>
+    visible.every(d => prev.has(d.id)) && prev.size > 0 ? new Set() : new Set(visible.map(d => d.id)))
+
+  // Select the first N drafts in the current tab (for quick bulk schedule/send).
+  const selectTop = (n: number) => { setSelected(new Set(visible.slice(0, n).map(d => d.id))); setSelectMenuOpen(false) }
 
   const handleDelete = async () => {
     if (selected.size === 0) return
@@ -743,13 +850,40 @@ export default function EmailsPage() {
   }
 
   const handleSendSelected = () => runSend(drafts.filter(d => selected.has(d.id)))
-  const handleSendTop = (n: number) => runSend(drafts.slice(0, n))
+  const handleSendTop = (n: number) => runSend(visible.slice(0, n))
+
+  // Bulk-schedule every selected draft to auto-send at the same time.
+  const handleScheduleSelected = async (iso: string) => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    setScheduling(true)
+    const { error } = await supabase.schema('crm').from('email_drafts')
+      .update({ status: 'scheduled', scheduled_at: iso, last_error: null }).in('id', ids)
+    if (error) toast.error(error.message)
+    else {
+      toast.success(`Scheduled ${ids.length} draft${ids.length !== 1 ? 's' : ''} for ${format(new Date(iso), 'MMM d, h:mm a')}`)
+      setSelected(new Set()); setScheduleModalOpen(false); setActiveTab('scheduled'); fetchDrafts()
+    }
+    setScheduling(false)
+  }
+
+  // Move selected scheduled drafts back to plain drafts.
+  const handleUnscheduleSelected = async () => {
+    const ids = [...selected]
+    if (ids.length === 0) return
+    setScheduling(true)
+    const { error } = await supabase.schema('crm').from('email_drafts')
+      .update({ status: 'draft', scheduled_at: null }).in('id', ids)
+    if (error) toast.error(error.message)
+    else { toast.success(`Unscheduled ${ids.length} draft${ids.length !== 1 ? 's' : ''}`); setSelected(new Set()); fetchDrafts() }
+    setScheduling(false)
+  }
 
   // Resolve company names from the CRM (contact_id → company.name) so the export
   // fills the `company` column for recipients that came from contacts.
   const handleExport = async (format: 'xlsx' | 'csv') => {
     setDownloadMenuOpen(false)
-    const toExport = someSelected ? drafts.filter(d => selected.has(d.id)) : drafts
+    const toExport = someSelected ? drafts.filter(d => selected.has(d.id)) : visible
     // Only look up older drafts whose recipients predate the stored `company` field.
     const ids = [...new Set(toExport.flatMap(d =>
       d.recipients.filter(r => r.contact_id && !r.company).map(r => r.contact_id as string)
@@ -766,7 +900,7 @@ export default function EmailsPage() {
     downloadDrafts(toExport, companyByContactId, format)
   }
 
-  const allSelected = drafts.length > 0 && selected.size === drafts.length
+  const allSelected = visible.length > 0 && visible.every(d => selected.has(d.id))
   const someSelected = selected.size > 0
 
   return (
@@ -778,13 +912,31 @@ export default function EmailsPage() {
 
       <ComposePanel onSaved={fetchDrafts} />
 
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-zinc-800">
+        {([
+          { key: 'drafts' as const, label: 'Drafts', count: inboxDrafts.length, icon: Mail },
+          { key: 'scheduled' as const, label: 'Scheduled', count: scheduledDrafts.length, icon: Clock },
+        ]).map(({ key, label, count, icon: Icon }) => (
+          <button key={key} type="button" onClick={() => switchTab(key)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === key
+                ? 'border-indigo-500 text-zinc-100'
+                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}>
+            <Icon className="w-4 h-4" /> {label}
+            <span className={`text-xs rounded-full px-1.5 py-0.5 ${activeTab === key ? 'bg-indigo-600/20 text-indigo-300' : 'bg-zinc-800 text-zinc-500'}`}>{count}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Table */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
         {/* Toolbar */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
           <div className="flex items-center gap-3">
             {/* Select all toggle */}
-            <button type="button" onClick={toggleAll} disabled={drafts.length === 0}
+            <button type="button" onClick={toggleAll} disabled={visible.length === 0}
               className="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors disabled:opacity-30
                          border-zinc-600 hover:border-indigo-500"
               style={{ background: allSelected ? '#4f46e5' : someSelected ? '#312e81' : 'transparent', borderColor: allSelected || someSelected ? '#4f46e5' : undefined }}>
@@ -795,8 +947,36 @@ export default function EmailsPage() {
                   : null}
             </button>
             <span className="text-sm font-semibold text-zinc-300">
-              Drafts {drafts.length > 0 && <span className="text-zinc-500 font-normal">({drafts.length})</span>}
+              {activeTab === 'scheduled' ? 'Scheduled' : 'Drafts'} {visible.length > 0 && <span className="text-zinc-500 font-normal">({visible.length})</span>}
             </span>
+
+            {/* Select top N */}
+            {visible.length > 1 && (
+              <div className="relative">
+                <button type="button" onClick={() => setSelectMenuOpen(o => !o)}
+                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors">
+                  Select top <ChevronDown className="w-3 h-3" />
+                </button>
+                {selectMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setSelectMenuOpen(false)} />
+                    <div className="absolute left-0 mt-1 z-20 w-40 rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl py-1">
+                      {[5, 10, 50, 100].filter(n => n < visible.length).map(n => (
+                        <button key={n} type="button" onClick={() => selectTop(n)}
+                          className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">
+                          Top {n}
+                        </button>
+                      ))}
+                      <button type="button" onClick={() => selectTop(visible.length)}
+                        className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors border-t border-zinc-800">
+                        All {visible.length}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {someSelected && <span className="text-xs text-zinc-500">{selected.size} selected</span>}
           </div>
 
@@ -808,6 +988,16 @@ export default function EmailsPage() {
                   {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   Delete
                 </Button>
+                {activeTab === 'scheduled' ? (
+                  <Button size="sm" variant="ghost" onClick={handleUnscheduleSelected} disabled={scheduling || sending}>
+                    {scheduling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                    Unschedule
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => setScheduleModalOpen(true)} disabled={scheduling || sending}>
+                    <Clock className="h-3.5 w-3.5" /> Schedule {selected.size}
+                  </Button>
+                )}
                 <Button size="sm" onClick={handleSendSelected} disabled={sending}>
                   {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                   {sending ? 'Sending...' : `Send ${selected.size}`}
@@ -816,7 +1006,7 @@ export default function EmailsPage() {
             )}
 
             {/* Download drafts as template */}
-            {drafts.length > 0 && (
+            {visible.length > 0 && (
               <div className="relative">
                 <Button size="sm" variant="ghost" onClick={() => setDownloadMenuOpen(o => !o)}>
                   <Download className="h-3.5 w-3.5" /> {someSelected ? `Export ${selected.size}` : 'Export'} <ChevronDown className="h-3.5 w-3.5" />
@@ -842,7 +1032,7 @@ export default function EmailsPage() {
             )}
 
             {/* Send top N */}
-            {drafts.length > 0 && (
+            {activeTab === 'drafts' && visible.length > 0 && (
               <div className="relative">
                 <Button size="sm" variant={someSelected ? 'ghost' : 'default'} onClick={() => setSendMenuOpen(o => !o)} disabled={sending}>
                   <Send className="h-3.5 w-3.5" /> Send top <ChevronDown className="h-3.5 w-3.5" />
@@ -851,15 +1041,15 @@ export default function EmailsPage() {
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setSendMenuOpen(false)} />
                     <div className="absolute right-0 mt-1 z-20 w-44 rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl py-1">
-                      {[5, 10, 50].filter(n => n < drafts.length).map(n => (
+                      {[5, 10, 50].filter(n => n < visible.length).map(n => (
                         <button key={n} type="button" onClick={() => handleSendTop(n)}
                           className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">
                           Top {n} drafts
                         </button>
                       ))}
-                      <button type="button" onClick={() => handleSendTop(drafts.length)}
+                      <button type="button" onClick={() => handleSendTop(visible.length)}
                         className="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">
-                        All {drafts.length} draft{drafts.length !== 1 ? 's' : ''}
+                        All {visible.length} draft{visible.length !== 1 ? 's' : ''}
                       </button>
                     </div>
                   </>
@@ -909,12 +1099,12 @@ export default function EmailsPage() {
         )}
 
         {/* Header row */}
-        {drafts.length > 0 && (
+        {visible.length > 0 && (
           <div className="grid grid-cols-[2.5rem_1fr_6rem_5rem_2.5rem] px-4 py-2 border-b border-zinc-800 text-xs text-zinc-500 font-medium">
             <div />
             <div>Subject / Recipients</div>
             <div className="text-center">Recipients</div>
-            <div className="text-right">Date</div>
+            <div className="text-right">{activeTab === 'scheduled' ? 'Send at' : 'Date'}</div>
             <div />
           </div>
         )}
@@ -922,14 +1112,18 @@ export default function EmailsPage() {
         {/* Rows */}
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
-        ) : drafts.length === 0 ? (
+        ) : visible.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">
-            <Mail className="w-8 h-8 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No drafts yet</p>
-            <p className="text-xs mt-1">Compose one above or save a draft from a contact&apos;s email composer</p>
+            {activeTab === 'scheduled' ? <Clock className="w-8 h-8 mx-auto mb-3 opacity-30" /> : <Mail className="w-8 h-8 mx-auto mb-3 opacity-30" />}
+            <p className="text-sm">{activeTab === 'scheduled' ? 'No scheduled emails' : 'No drafts yet'}</p>
+            <p className="text-xs mt-1">
+              {activeTab === 'scheduled'
+                ? 'Select drafts and click Schedule to queue them for automatic sending'
+                : 'Compose one above or save a draft from a contact’s email composer'}
+            </p>
           </div>
         ) : (
-          drafts.map(draft => {
+          visible.map(draft => {
             const isSelected = selected.has(draft.id)
             return (
               <div key={draft.id}
@@ -949,8 +1143,18 @@ export default function EmailsPage() {
 
                 {/* Subject + recipient names */}
                 <button type="button" onClick={() => { setPreview(draft); setPreviewEdit(false) }} className="text-left min-w-0 pr-4">
-                  <p className="text-sm font-medium text-zinc-200 truncate">
-                    {draft.subject || <span className="italic text-zinc-500">(no subject)</span>}
+                  <p className="text-sm font-medium text-zinc-200 truncate flex items-center gap-2">
+                    <span className="truncate">{draft.subject || <span className="italic text-zinc-500">(no subject)</span>}</span>
+                    {draft.status === 'scheduled' && draft.scheduled_at && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-medium bg-indigo-950/60 text-indigo-300 border border-indigo-900 rounded-full px-1.5 py-0.5">
+                        <Clock className="w-2.5 h-2.5" />{format(new Date(draft.scheduled_at), 'MMM d, h:mm a')}
+                      </span>
+                    )}
+                    {draft.status === 'failed' && (
+                      <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-medium bg-red-950/60 text-red-300 border border-red-900 rounded-full px-1.5 py-0.5">
+                        <X className="w-2.5 h-2.5" />failed
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-zinc-500 truncate mt-0.5">
                     {draft.recipients.map(r => r.full_name).join(', ')}
@@ -966,7 +1170,9 @@ export default function EmailsPage() {
 
                 {/* Date */}
                 <div className="text-right text-xs text-zinc-500">
-                  {format(new Date(draft.created_at), 'MMM d')}
+                  {activeTab === 'scheduled' && draft.scheduled_at
+                    ? format(new Date(draft.scheduled_at), 'MMM d, HH:mm')
+                    : format(new Date(draft.created_at), 'MMM d')}
                 </div>
 
                 {/* Edit */}
@@ -989,6 +1195,15 @@ export default function EmailsPage() {
           startInEdit={previewEdit}
           onClose={() => setPreview(null)}
           onChanged={fetchDrafts}
+        />
+      )}
+
+      {scheduleModalOpen && (
+        <BulkScheduleModal
+          count={selected.size}
+          busy={scheduling}
+          onConfirm={handleScheduleSelected}
+          onClose={() => setScheduleModalOpen(false)}
         />
       )}
     </div>

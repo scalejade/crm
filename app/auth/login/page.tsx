@@ -8,7 +8,8 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Building2 } from 'lucide-react'
+import { useBranding } from '@/lib/branding-context'
 
 function LoginForm() {
   const router = useRouter()
@@ -71,11 +72,19 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { companyName, logoUrl } = useBranding()
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-zinc-100">CRM</h1>
+        <div className="mb-8 flex flex-col items-center text-center">
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="w-14 h-14 rounded-2xl object-cover mb-3" />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-3">
+              <Building2 className="w-7 h-7 text-white" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold text-zinc-100">{companyName}</h1>
           <p className="text-zinc-400 mt-1 text-sm">Sign in to your workspace</p>
         </div>
 

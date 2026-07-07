@@ -59,23 +59,25 @@ html {
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --zinc-950: #191919;
-  --zinc-900: #202020;
-  --zinc-800: #2a2a2a;
-  --zinc-700: #353535;
-  --zinc-600: #5a5a5a;
-  --zinc-500: #737373;
-  --zinc-400: #a0a0a0;
-  --zinc-300: #c4c4c4;
-  --zinc-200: #dedede;
-  --zinc-100: #efefef;
-  --zinc-50:  #f7f7f7;
+  /* Warm near-black neutral ramp, matching the Claude Console */
+  --zinc-950: #1a1a19;
+  --zinc-900: #1f1e1d;
+  --zinc-800: #2a2927;
+  --zinc-700: #34322f;
+  --zinc-600: #57534e;
+  --zinc-500: #78716c;
+  --zinc-400: #a3a09a;
+  --zinc-300: #c7c4bd;
+  --zinc-200: #e0ddd6;
+  --zinc-100: #edeae3;
+  --zinc-50:  #f5f3ee;
 
-  --indigo-950: #2a1a2e;
-  --indigo-900: #3d2052;
-  --indigo-800: #5b3080;
-  --indigo-700: #7c4dab;
-  --indigo-600: #d97756;
+  /* Terracotta accent (Claude brand) — used sparingly */
+  --indigo-950: #2e1a12;
+  --indigo-900: #43261a;
+  --indigo-800: #6b3823;
+  --indigo-700: #9c5236;
+  --indigo-600: #d97757;
   --indigo-500: #e08a68;
   --indigo-400: #e8a080;
   --indigo-300: #f0b99a;
@@ -85,8 +87,8 @@ html {
 
 html[data-theme="dark"],
 html[data-theme="dark"] body {
-  background-color: #191919;
-  color: #efefef;
+  background-color: #1a1a19;
+  color: #edeae3;
 }
 
 /* ── Light theme ── */

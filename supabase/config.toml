@@ -1,0 +1,10 @@
+project_id = "ojpqcbgcbmugwsbzoost"
+
+# Sends one email using the caller's JWT + their saved SMTP config.
+[functions.send-custom-email]
+verify_jwt = true
+
+# Cron worker. No end-user JWT exists for a scheduled job, so JWT verification is
+# off — access is gated by the x-cron-secret header it checks internally.
+[functions.process-scheduled-emails]
+verify_jwt = false

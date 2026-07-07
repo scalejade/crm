@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Users, Tag, Kanban, LayoutDashboard, LogOut, Building2, HardDrive, FileCode2, ChevronLeft, ChevronRight, Settings, Sun, Moon, FileText, Mail, Terminal } from 'lucide-react'
+import { Users, Tag, Kanban, LayoutDashboard, LogOut, Building2, HardDrive, FileCode2, ChevronLeft, ChevronRight, Settings, Sun, Moon, FileText, Mail, Terminal, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
+import { useBranding } from '@/lib/branding-context'
+import { usePreferences } from '@/lib/preferences-context'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const navItems = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -26,11 +28,49 @@ const externalItems = [
   { href: '/docs', label: 'API Docs', icon: Terminal },
 ]
 
+// Live clock — shows the user's own local time only. Scheduling converts to UTC
+// under the hood, so users never have to think about timezones.
+function SidebarClock({ collapsed }: { collapsed: boolean }) {
+  const [now, setNow] = useState<Date | null>(null)
+
+  useEffect(() => {
+    setNow(new Date())
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  if (!now) return null // avoid SSR/client hydration mismatch
+
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const hhmmss = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+
+  if (collapsed) {
+    return (
+      <div className="flex flex-col items-center py-1 text-[10px] text-zinc-500 tabular-nums" title={tz}>
+        <Clock className="w-3.5 h-3.5 mb-0.5" />
+        {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-2 py-1.5">
+      <div className="flex items-center gap-1.5 text-xs">
+        <Clock className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+        <span className="tabular-nums text-zinc-200 font-medium">{hhmmss}</span>
+      </div>
+      <p className="mt-0.5 pl-5 text-[11px] text-zinc-600 truncate">{tz}</p>
+    </div>
+  )
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { signOut, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { companyName, logoUrl } = useBranding()
+  const { showClock } = usePreferences()
   const [collapsed, setCollapsed] = useState(false)
 
   const handleSignOut = async () => {
@@ -46,11 +86,15 @@ export function Sidebar() {
     )}>
       {/* Logo + collapse toggle */}
       <div className="flex items-center h-16 border-b border-zinc-800 px-3 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
-          <Building2 className="w-4 h-4 text-white" />
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt={companyName} className="w-7 h-7 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+            <Building2 className="w-4 h-4 text-white" />
+          </div>
+        )}
         {!collapsed && (
-          <span className="font-semibold text-zinc-100 text-lg ml-2.5 flex-1 truncate">CRM</span>
+          <span className="font-semibold text-zinc-100 text-lg ml-2.5 flex-1 truncate">{companyName}</span>
         )}
         <button
           onClick={() => setCollapsed(c => !c)}
@@ -77,7 +121,7 @@ export function Sidebar() {
                 'flex items-center rounded-lg text-sm font-medium transition-colors',
                 collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
                 active
-                  ? 'bg-indigo-600/20 text-indigo-400'
+                  ? 'bg-zinc-800 text-zinc-50'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
               )}
             >
@@ -107,10 +151,11 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* User + sign out */}
+      {/* Clock + user + sign out */}
       <div className="px-2 py-4 border-t border-zinc-800 space-y-1">
+        {showClock && <SidebarClock collapsed={collapsed} />}
         {!collapsed && (
-          <div className="flex items-center gap-2 px-2 mb-2">
+          <div className="flex items-center gap-2 px-2 mb-2 mt-1">
             <div className="w-7 h-7 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-semibold text-white shrink-0">
               {user?.email?.[0]?.toUpperCase()}
             </div>

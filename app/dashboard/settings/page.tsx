@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth-context'
+import { useBranding } from '@/lib/branding-context'
+import { usePreferences } from '@/lib/preferences-context'
 import type { UserProfile, SmtpConfig } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import {
   Users, Settings, Loader2, Mail, Server, Lock,
-  User, CheckCircle2, Eye, EyeOff,
+  User, CheckCircle2, Eye, EyeOff, Building2, Upload, Trash2, Image as ImageIcon, Clock, SlidersHorizontal,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 
@@ -258,6 +260,119 @@ function SmtpTab() {
   )
 }
 
+// ─── Branding tab ─────────────────────────────────────────────────────────────
+
+const MAX_LOGO_BYTES = 512 * 1024 // 512 KB
+
+function BrandingTab() {
+  const { companyName: currentName, logoUrl: currentLogo, refresh } = useBranding()
+  const [companyName, setCompanyName] = useState(currentName)
+  const [logoUrl, setLogoUrl] = useState<string | null>(currentLogo)
+  const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  // Keep the form in sync once branding finishes loading.
+  useEffect(() => { setCompanyName(currentName); setLogoUrl(currentLogo) }, [currentName, currentLogo])
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Please choose an image file'); return }
+    if (file.size > MAX_LOGO_BYTES) { toast.error('Logo must be under 512 KB'); return }
+    const reader = new FileReader()
+    reader.onload = () => setLogoUrl(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleSave = async () => {
+    if (!companyName.trim()) { toast.error('Company name is required'); return }
+    setSaving(true)
+    const { error } = await supabase.schema('crm').from('branding').update({
+      company_name: companyName.trim(),
+      logo_url: logoUrl,
+      updated_at: new Date().toISOString(),
+    }).eq('id', true)
+    if (error) toast.error(error.message)
+    else { toast.success('Branding updated'); await refresh() }
+    setSaving(false)
+  }
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6 max-w-lg">
+      <div className="space-y-2">
+        <Label>Company logo</Label>
+        <div className="flex items-center gap-4">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo preview" className="w-16 h-16 rounded-xl object-cover border border-zinc-700" />
+          ) : (
+            <div className="w-16 h-16 rounded-xl bg-indigo-600 flex items-center justify-center">
+              <Building2 className="w-8 h-8 text-white" />
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+            <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()}>
+              <Upload className="w-3.5 h-3.5" /> {logoUrl ? 'Replace' : 'Upload'} logo
+            </Button>
+            {logoUrl && (
+              <Button size="sm" variant="ghost" onClick={() => setLogoUrl(null)}
+                className="text-red-400 hover:text-red-300 hover:bg-red-950/30">
+                <Trash2 className="w-3.5 h-3.5" /> Remove
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-zinc-500 flex items-center gap-1.5">
+          <ImageIcon className="w-3 h-3" /> Square PNG/SVG under 512 KB works best. Falls back to a default icon.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Company name</Label>
+        <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acme Inc" />
+        <p className="text-xs text-zinc-500">Shown in the sidebar, mobile header, and the login screen.</p>
+      </div>
+
+      <Button onClick={handleSave} disabled={saving}>
+        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+        Save Branding
+      </Button>
+    </div>
+  )
+}
+
+// ─── Preferences tab (device-local, not saved to the database) ────────────────
+
+function PreferencesTab() {
+  const { showClock, setShowClock } = usePreferences()
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-lg space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-zinc-100 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-indigo-400" /> Show clock in sidebar
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Displays the current local time and timezone.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={showClock}
+          onClick={() => setShowClock(!showClock)}
+          className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${showClock ? 'bg-indigo-600' : 'bg-zinc-700'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${showClock ? 'translate-x-4' : ''}`} />
+        </button>
+      </div>
+      <p className="text-xs text-zinc-600">This preference is stored on this device only.</p>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -273,16 +388,28 @@ export default function SettingsPage() {
           <TabsTrigger value="users" className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" /> Users
           </TabsTrigger>
+          <TabsTrigger value="branding" className="flex items-center gap-1.5">
+            <Building2 className="w-3.5 h-3.5" /> Branding
+          </TabsTrigger>
           <TabsTrigger value="smtp" className="flex items-center gap-1.5">
             <Settings className="w-3.5 h-3.5" /> SMTP
+          </TabsTrigger>
+          <TabsTrigger value="preferences" className="flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Preferences
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users">
           <UsersTab />
         </TabsContent>
+        <TabsContent value="branding">
+          <BrandingTab />
+        </TabsContent>
         <TabsContent value="smtp">
           <SmtpTab />
+        </TabsContent>
+        <TabsContent value="preferences">
+          <PreferencesTab />
         </TabsContent>
       </Tabs>
     </div>

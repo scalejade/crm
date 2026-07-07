@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
+import { useBranding } from '@/lib/branding-context'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 
@@ -31,6 +32,7 @@ export function MobileNav() {
   const router = useRouter()
   const { signOut, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { companyName, logoUrl } = useBranding()
   const [open, setOpen] = useState(false)
 
   // Close drawer on route change
@@ -53,10 +55,14 @@ export function MobileNav() {
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2 ml-2">
-          <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
-            <Building2 className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="font-semibold text-zinc-100 text-base">CRM</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="w-6 h-6 rounded-md object-cover" />
+          ) : (
+            <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
+              <Building2 className="w-3.5 h-3.5 text-white" />
+            </div>
+          )}
+          <span className="font-semibold text-zinc-100 text-base">{companyName}</span>
         </div>
       </header>
 
@@ -75,10 +81,14 @@ export function MobileNav() {
       )}>
         {/* Drawer header */}
         <div className="flex items-center h-14 border-b border-zinc-800 px-4 shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <Building2 className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-semibold text-zinc-100 text-lg ml-2.5 flex-1">CRM</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt={companyName} className="w-7 h-7 rounded-lg object-cover" />
+          ) : (
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+          )}
+          <span className="font-semibold text-zinc-100 text-lg ml-2.5 flex-1">{companyName}</span>
           <button
             onClick={() => setOpen(false)}
             className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
@@ -98,7 +108,7 @@ export function MobileNav() {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                   active
-                    ? 'bg-indigo-600/20 text-indigo-400'
+                    ? 'bg-zinc-800 text-zinc-50'
                     : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100'
                 )}
               >

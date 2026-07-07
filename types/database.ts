@@ -217,6 +217,9 @@ export interface Database {
           body: string
           is_html: boolean
           recipients: Array<{ contact_id: string | null; email: string; full_name: string; company?: string }>
+          status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed'
+          scheduled_at: string | null
+          last_error: string | null
           created_at: string
           updated_at: string
         }
@@ -227,6 +230,9 @@ export interface Database {
           body?: string
           is_html?: boolean
           recipients?: Array<{ contact_id: string | null; email: string; full_name: string; company?: string }>
+          status?: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed'
+          scheduled_at?: string | null
+          last_error?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -237,6 +243,9 @@ export interface Database {
           body?: string
           is_html?: boolean
           recipients?: Array<{ contact_id: string | null; email: string; full_name: string; company?: string }>
+          status?: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed'
+          scheduled_at?: string | null
+          last_error?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -275,6 +284,27 @@ export interface Database {
         }
         Relationships: []
       }
+      branding: {
+        Row: {
+          id: boolean
+          company_name: string
+          logo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          company_name?: string
+          logo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          company_name?: string
+          logo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -289,6 +319,7 @@ export type Company = Database['crm']['Tables']['companies']['Row']
 export type Contact = Database['crm']['Tables']['contacts']['Row']
 export type ContactTag = Database['crm']['Tables']['contact_tags']['Row']
 export type Deal = Database['crm']['Tables']['deals']['Row']
+export type Branding = Database['crm']['Tables']['branding']['Row']
 
 export type EmailTemplate = Database['crm']['Tables']['email_templates']['Row']
 export type SmtpConfig = Database['crm']['Tables']['smtp_configs']['Row']
