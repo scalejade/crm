@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Sidebar } from '@/components/layout/sidebar'
 import { MobileNav } from '@/components/layout/mobile-nav'
+import { NavPrefsProvider } from '@/lib/nav-prefs-context'
 import { Loader2 } from 'lucide-react'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -28,19 +29,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null
 
   return (
-    <div className="flex h-screen bg-zinc-950 overflow-hidden">
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex">
-        <Sidebar />
+    <NavPrefsProvider>
+      <div className="flex h-screen bg-zinc-950 overflow-hidden">
+        {/* Desktop sidebar */}
+        <div className="hidden md:flex">
+          <Sidebar />
+        </div>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+          {children}
+        </main>
+
+        {/* Mobile bottom nav */}
+        <MobileNav />
       </div>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
-        {children}
-      </main>
-
-      {/* Mobile bottom nav */}
-      <MobileNav />
-    </div>
+    </NavPrefsProvider>
   )
 }

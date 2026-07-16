@@ -284,6 +284,24 @@ export interface Database {
         }
         Relationships: []
       }
+      nav_prefs: {
+        Row: {
+          user_id: string
+          tabs: Record<string, boolean>
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          tabs?: Record<string, boolean>
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          tabs?: Record<string, boolean>
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branding: {
         Row: {
           id: boolean
@@ -320,6 +338,7 @@ export type Contact = Database['crm']['Tables']['contacts']['Row']
 export type ContactTag = Database['crm']['Tables']['contact_tags']['Row']
 export type Deal = Database['crm']['Tables']['deals']['Row']
 export type Branding = Database['crm']['Tables']['branding']['Row']
+export type NavPrefs = Database['crm']['Tables']['nav_prefs']['Row']
 
 export type EmailTemplate = Database['crm']['Tables']['email_templates']['Row']
 export type SmtpConfig = Database['crm']['Tables']['smtp_configs']['Row']

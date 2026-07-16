@@ -2,30 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  Users, Tag, Kanban, LayoutDashboard, LogOut, Building2,
-  HardDrive, FileCode2, Settings, Sun, Moon, FileText, Mail, Menu, X, Terminal,
-} from 'lucide-react'
+import { LogOut, Building2, Sun, Moon, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
 import { useBranding } from '@/lib/branding-context'
+import { useNavPrefs } from '@/lib/nav-prefs-context'
+import { NAV_ITEMS } from '@/lib/nav-items'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
-
-const navItems = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/contacts', label: 'Contacts', icon: Users },
-  { href: '/dashboard/companies', label: 'Companies', icon: Building2 },
-  { href: '/dashboard/pipeline', label: 'Pipeline', icon: Kanban },
-  { href: '/dashboard/tags', label: 'Tags', icon: Tag },
-  { href: '/dashboard/emails', label: 'Emails', icon: Mail },
-  { href: '/dashboard/templates', label: 'Templates', icon: FileCode2 },
-  { href: '/dashboard/md', label: 'Markdown', icon: FileText },
-  { href: '/dashboard/storage', label: 'Storage', icon: HardDrive },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
-  { href: '/dashboard/developer', label: 'Developer', icon: Terminal },
-]
 
 export function MobileNav() {
   const pathname = usePathname()
@@ -33,7 +18,10 @@ export function MobileNav() {
   const { signOut, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { companyName, logoUrl } = useBranding()
+  const { isTabVisible } = useNavPrefs()
   const [open, setOpen] = useState(false)
+
+  const visibleItems = NAV_ITEMS.filter(item => item.alwaysVisible || isTabVisible(item.key))
 
   // Close drawer on route change
   useEffect(() => { setOpen(false) }, [pathname])
@@ -99,7 +87,7 @@ export function MobileNav() {
 
         {/* Nav items */}
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-          {navItems.map(({ href, label, icon: Icon, exact }) => {
+          {visibleItems.map(({ href, label, icon: Icon, exact }) => {
             const active = exact ? pathname === href : pathname.startsWith(href)
             return (
               <Link

@@ -13,8 +13,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import {
   Users, Settings, Loader2, Mail, Server, Lock,
-  User, CheckCircle2, Eye, EyeOff, Building2, Upload, Trash2, Image as ImageIcon, Clock, SlidersHorizontal,
+  User, CheckCircle2, Eye, EyeOff, Building2, Upload, Trash2, Image as ImageIcon, Clock, SlidersHorizontal, PanelLeft,
 } from 'lucide-react'
+import { useNavPrefs } from '@/lib/nav-prefs-context'
+import { NAV_ITEMS } from '@/lib/nav-items'
 import { formatDistanceToNow, format } from 'date-fns'
 
 // ─── Users tab ───────────────────────────────────────────────────────────────
@@ -373,6 +375,56 @@ function PreferencesTab() {
   )
 }
 
+// ─── Sidebar tab (per-user, saved to the database) ────────────────────────────
+
+function SidebarTab() {
+  const { loaded, isTabVisible, setTabVisible } = useNavPrefs()
+
+  const handleToggle = async (key: string, visible: boolean) => {
+    try {
+      await setTabVisible(key, visible)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  if (!loaded) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
+  }
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-lg space-y-1">
+      <p className="text-sm text-zinc-400 mb-4">
+        Choose which tabs appear in the sidebar. All tabs are shown by default.
+      </p>
+      {NAV_ITEMS.map(({ key, label, icon: Icon, alwaysVisible }) => {
+        const visible = alwaysVisible || isTabVisible(key)
+        return (
+          <div key={key} className="flex items-center justify-between gap-4 py-2">
+            <p className="text-sm font-medium text-zinc-100 flex items-center gap-2 min-w-0">
+              <Icon className="w-4 h-4 text-indigo-400 shrink-0" /> {label}
+            </p>
+            {alwaysVisible ? (
+              <span className="text-xs text-zinc-600 shrink-0">Always shown</span>
+            ) : (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={visible}
+                onClick={() => handleToggle(key, !visible)}
+                className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${visible ? 'bg-indigo-600' : 'bg-zinc-700'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${visible ? 'translate-x-4' : ''}`} />
+              </button>
+            )}
+          </div>
+        )
+      })}
+      <p className="text-xs text-zinc-600 pt-3">Saved to your account and applied on every device.</p>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -394,6 +446,9 @@ export default function SettingsPage() {
           <TabsTrigger value="smtp" className="flex items-center gap-1.5">
             <Settings className="w-3.5 h-3.5" /> SMTP
           </TabsTrigger>
+          <TabsTrigger value="sidebar" className="flex items-center gap-1.5">
+            <PanelLeft className="w-3.5 h-3.5" /> Sidebar
+          </TabsTrigger>
           <TabsTrigger value="preferences" className="flex items-center gap-1.5">
             <SlidersHorizontal className="w-3.5 h-3.5" /> Preferences
           </TabsTrigger>
@@ -407,6 +462,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="smtp">
           <SmtpTab />
+        </TabsContent>
+        <TabsContent value="sidebar">
+          <SidebarTab />
         </TabsContent>
         <TabsContent value="preferences">
           <PreferencesTab />
